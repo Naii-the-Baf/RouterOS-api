@@ -1,25 +1,28 @@
-from routeros_api.api_communicator import async_decorator
-from routeros_api.api_communicator import base
-from routeros_api.api_communicator import encoding_decorator
-from routeros_api.api_communicator import exception_decorator
-from routeros_api.api_communicator import key_cleaner_decorator
+from typing import TYPE_CHECKING
+
+from routeros_api.api_communicator.async_decorator import AsyncApiCommunicator
+from routeros_api.api_communicator.base import ApiCommunicatorBase
+from routeros_api.api_communicator.encoding_decorator import EncodingApiCommunicator
+from routeros_api.api_communicator.exception_decorator import ExceptionAwareApiCommunicator
+from routeros_api.api_communicator.key_cleaner_decorator import KeyCleanerApiCommunicator
+
+if TYPE_CHECKING:
+    from routeros_api.api import CloseConnectionExceptionHandler
+    from routeros_api.base_api import Connection
+    from routeros_api.communication_exception_parsers import ExceptionHandler
 
 
-class ApiCommunicator(encoding_decorator.EncodingApiCommunicator):
-    def __init__(self, base_api):
-        communicator = base.ApiCommunicatorBase(base_api)
+class ApiCommunicator(EncodingApiCommunicator):
+    def __init__(self, base_api: Connection):
+        communicator = ApiCommunicatorBase(base_api)
 
-        key_cleaner_communicator = (
-            key_cleaner_decorator.KeyCleanerApiCommunicator(communicator))
+        key_cleaner_communicator = KeyCleanerApiCommunicator(communicator)
 
-        self.exception_aware_communicator = (
-            exception_decorator.ExceptionAwareApiCommunicator(
-                key_cleaner_communicator))
+        self.exception_aware_communicator = ExceptionAwareApiCommunicator(key_cleaner_communicator)
 
-        async_communicator = async_decorator.AsyncApiCommunicator(
-            self.exception_aware_communicator)
+        async_communicator = AsyncApiCommunicator(self.exception_aware_communicator)
 
         super(ApiCommunicator, self).__init__(async_communicator)
 
-    def add_exception_handler(self, exception_handler):
+    def add_exception_handler(self, exception_handler: CloseConnectionExceptionHandler | ExceptionHandler) -> None:
         self.exception_aware_communicator.add_handler(exception_handler)

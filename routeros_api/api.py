@@ -1,17 +1,36 @@
+from __future__ import annotations
+
 import binascii
 import hashlib
 
-from routeros_api import api_communicator
+from typing import TYPE_CHECKING
+
 from routeros_api import api_socket
 from routeros_api import api_structure
 from routeros_api import base_api
-from routeros_api import communication_exception_parsers
 from routeros_api import exceptions
-from routeros_api import resource
+from routeros_api.api_communicator import ApiCommunicator
+from routeros_api.communication_exception_parsers import ExceptionHandler
+from routeros_api.resource import RouterOsBinaryResource
+from routeros_api.resource import RouterOsResource
+
+if TYPE_CHECKING:
+    from ssl import SSLContext
+    from typing import Any
+    from typing import Iterator
+
+    from routeros_api.api_structure import Field
 
 
-def connect(host, username='admin', password='', port=None, plaintext_login=False, use_ssl=False, ssl_verify=True,
-            ssl_verify_hostname=True, ssl_context=None):
+def connect(host: str,
+            username: str = 'admin',
+            password: str = '',
+            port: int | None = None,
+            plaintext_login: bool = False,
+            use_ssl: bool = False,
+            ssl_verify: bool = True,
+            ssl_verify_hostname: bool = True,
+            ssl_context: SSLContext | None = None) -> RouterOsApi:
     return RouterOsApiPool(
         host, username, password, port, plaintext_login, use_ssl, ssl_verify, ssl_verify_hostname, ssl_context,
     ).get_api()
@@ -20,8 +39,16 @@ def connect(host, username='admin', password='', port=None, plaintext_login=Fals
 class RouterOsApiPool(object):
     socket_timeout = 15.0
 
-    def __init__(self, host, username='admin', password='', port=None, plaintext_login=False, use_ssl=False,
-                 ssl_verify=True, ssl_verify_hostname=True, ssl_context=None):
+    def __init__(self,
+                 host: str,
+                 username: str = 'admin',
+                 password: str = '',
+                 port: int | None = None,
+                 plaintext_login: bool = False,
+                 use_ssl: bool = False,
+                 ssl_verify: bool = True,
+                 ssl_verify_hostname: bool = True,
+                 ssl_context: SSLContext | None = None) -> None:
         self.host = host
         self.username = username
         self.password = password
@@ -38,17 +65,16 @@ class RouterOsApiPool(object):
         self.port = port or self._select_default_port(self.use_ssl)
 
         self.connected = False
-        self.socket = api_socket.DummySocket()
-        self.communication_exception_parser = (
-            communication_exception_parsers.ExceptionHandler())
+        self.socket: api_socket.Socket = api_socket.DummySocket()
+        self.communication_exception_parser = ExceptionHandler()
 
-    def get_api(self):
+    def get_api(self) -> RouterOsApi:
         if not self.connected:
             self.socket = api_socket.get_socket(
                 self.host, self.port, timeout=self.socket_timeout, use_ssl=self.use_ssl, ssl_verify=self.ssl_verify,
                 ssl_verify_hostname=self.ssl_verify_hostname, ssl_context=self.ssl_context)
             base = base_api.Connection(self.socket)
-            communicator = api_communicator.ApiCommunicator(base)
+            communicator = ApiCommunicator(base)
             self.api = RouterOsApi(communicator)
             for handler in self._get_exception_handlers():
                 communicator.add_exception_handler(handler)
@@ -56,20 +82,20 @@ class RouterOsApiPool(object):
             self.connected = True
         return self.api
 
-    def disconnect(self):
+    def disconnect(self) -> None:
         self.connected = False
         self.socket.close()
         self.socket = api_socket.DummySocket()
 
-    def set_timeout(self, socket_timeout):
+    def set_timeout(self, socket_timeout: float) -> None:
         self.socket_timeout = socket_timeout
         self.socket.settimeout(socket_timeout)
 
-    def _get_exception_handlers(self):
+    def _get_exception_handlers(self) -> Iterator[CloseConnectionExceptionHandler | ExceptionHandler]:
         yield CloseConnectionExceptionHandler(self)
         yield self.communication_exception_parser
 
-    def _select_default_port(self, use_ssl):
+    def _select_default_port(self, use_ssl: bool) -> int:
         if use_ssl:
             return 8729
         else:
@@ -77,10 +103,10 @@ class RouterOsApiPool(object):
 
 
 class RouterOsApi(object):
-    def __init__(self, communicator):
+    def __init__(self, communicator: ApiCommunicator):
         self.communicator = communicator
 
-    def login(self, login, password, plaintext_login):
+    def login(self, login: str | bytes, password: str | bytes, plaintext_login: bool) -> None:
         if isinstance(login, str):
             login = login.encode()
         if isinstance(password, str):
@@ -100,20 +126,20 @@ class RouterOsApi(object):
             self.get_binary_resource('/').call(
                 'login', {'name': login, 'response': hashed})
 
-    def get_resource(self, path, structure=None):
+    def get_resource(self, path: str, structure: dict[Any, Field] | None = None) -> RouterOsResource:
         if structure is None:
-            structure = api_structure.default_structure
-        return resource.RouterOsResource(self.communicator, path, structure)
+            structure = api_structure.default_structure  # type: ignore
+        return RouterOsResource(self.communicator, path, structure)  # type: ignore
 
-    def get_binary_resource(self, path):
-        return resource.RouterOsBinaryResource(self.communicator, path)
+    def get_binary_resource(self, path: str) -> RouterOsBinaryResource:
+        return RouterOsBinaryResource(self.communicator, path)
 
 
 class CloseConnectionExceptionHandler:
-    def __init__(self, pool):
+    def __init__(self, pool: RouterOsApiPool):
         self.pool = pool
 
-    def handle(self, exception):
+    def handle(self, exception: Exception) -> None:
         connection_closed = isinstance(
             exception, exceptions.RouterOsApiConnectionError)
         fatal_error = isinstance(exception, exceptions.FatalRouterOsApiError)

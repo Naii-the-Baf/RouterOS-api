@@ -1,19 +1,32 @@
+from __future__ import annotations
+
 import logging
+
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from routeros_api.api_communicator.async_decorator import AsyncApiCommunicator
+    from routeros_api.api_communicator.async_decorator import ResponsePromise
 
 logger = logging.getLogger(__name__)
 
 
 class EncodingApiCommunicator(object):
-    def __init__(self, inner):
+    def __init__(self, inner: AsyncApiCommunicator):
         self.inner = inner
 
-    def call(self, path, command, arguments=None, queries=None, additional_queries=()):
-        path = path.encode()
-        command = command.encode()
+    def call(self,
+             path: str,
+             command: str,
+             arguments: dict[str, bytes | None] | None = None,
+             queries: dict[str, bytes | None] | None = None,
+             additional_queries: tuple = ()):
+        path_bytes = path.encode()
+        command_bytes = command.encode()
         arguments = self.transform_dictionary(arguments or {})
         queries = self.transform_dictionary(queries or {})
         promise = self.inner.call(
-            path, command, arguments, queries, additional_queries)
+            path_bytes, command_bytes, arguments, queries, additional_queries)
         return self.decorate_promise(promise)
 
     def transform_dictionary(self, dictionary):
@@ -28,12 +41,12 @@ class EncodingApiCommunicator(object):
             value = value.encode()
         return (key.encode(), value)
 
-    def decorate_promise(self, promise):
+    def decorate_promise(self, promise: ResponsePromise) -> EncodedPromiseDecorator:
         return EncodedPromiseDecorator(promise)
 
 
 class EncodedPromiseDecorator(object):
-    def __init__(self, inner):
+    def __init__(self, inner: ResponsePromise):
         self.inner = inner
 
     def get(self):

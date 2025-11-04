@@ -1,7 +1,16 @@
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from typing import Any
+
+    from routeros_api.api_communicator import ApiCommunicator
+    from routeros_api.api_structure import Field
+
+
 class RouterOsBinaryResource(object):
-    def __init__(self, communicator, path):
-        self.communicator = communicator
-        self.path = clean_path(path)
+    def __init__(self, communicator: ApiCommunicator, path: str) -> None:
+        self.communicator: ApiCommunicator = communicator
+        self.path: str = clean_path(path)
 
     def get(self, **kwargs):
         return self.call('print', {}, kwargs)
@@ -10,10 +19,10 @@ class RouterOsBinaryResource(object):
         return self.call_async('print', {}, kwargs)
 
     def detailed_get(self, **kwargs):
-        return self.call('print', {'detail': ''}, kwargs)
+        return self.call('print', {'detail': b''}, kwargs)
 
     def detailed_get_async(self, **kwargs):
-        return self.call_async('print', {'detail': ''}, kwargs)
+        return self.call_async('print', {'detail': b''}, kwargs)
 
     def set(self, **kwargs):
         return self.call('set', kwargs)
@@ -33,13 +42,20 @@ class RouterOsBinaryResource(object):
     def remove_async(self, **kwargs):
         return self.call_async('remove', kwargs)
 
-    def call(self, command, arguments=None, queries=None,
-             additional_queries=()):
+    def call(self,
+             command: str,
+             arguments: dict[str, bytes | None] | None = None,
+             queries: dict[str, bytes | None] | None = None,
+             additional_queries: tuple = ()):
         return self.call_async(
             command, arguments=arguments, queries=queries, additional_queries=additional_queries,
         ).get()
 
-    def call_async(self, command, arguments=None, queries=None, additional_queries=()):
+    def call_async(self,
+                   command: str,
+                   arguments: dict[str, bytes | None] | None = None,
+                   queries: dict[str, bytes | None] | None = None,
+                   additional_queries: tuple = ()):
         return self.communicator.call(
             self.path, command, arguments=arguments, queries=queries,
             additional_queries=additional_queries)
@@ -49,7 +65,7 @@ class RouterOsBinaryResource(object):
 
 
 class RouterOsResource(RouterOsBinaryResource):
-    def __init__(self, communicator, path, structure):
+    def __init__(self, communicator, path, structure: dict[Any, Field]):
         self.structure = structure
         super(RouterOsResource, self).__init__(communicator, path)
 
@@ -76,7 +92,7 @@ class RouterOsResource(RouterOsBinaryResource):
 
 
 class TypedPromiseDecorator(object):
-    def __init__(self, inner, structure):
+    def __init__(self, inner, structure: dict[Any, Field]):
         self.inner = inner
         self.structure = structure
 
@@ -98,7 +114,7 @@ class TypedPromiseDecorator(object):
             return (key, self.structure[key].get_python_value(value))
 
 
-def clean_path(path):
+def clean_path(path: str) -> str:
     if not path.endswith('/'):
         path += '/'
     if not path.startswith('/'):

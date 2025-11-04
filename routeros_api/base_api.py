@@ -1,6 +1,11 @@
 import socket
 
+from typing import TYPE_CHECKING
+
 from routeros_api import exceptions
+
+if TYPE_CHECKING:
+    from routeros_api.api_socket import SocketWrapper
 
 LENGTH_MATRIX = [
     (0x80, 0x0),
@@ -14,7 +19,7 @@ OVER_MAX_LENGTH_MASK = 0xF8
 
 
 class Connection(object):
-    def __init__(self, socket):
+    def __init__(self, socket: SocketWrapper) -> None:
         self.socket = socket
 
     def send_sentence(self, words):

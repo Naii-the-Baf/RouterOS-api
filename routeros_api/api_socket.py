@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 import socket
 import ssl
 
@@ -6,13 +8,18 @@ from routeros_api import exceptions
 try:
     import errno
 except ImportError:
-    errno = None
+    errno = None  # type: ignore
 
 EINTR = getattr(errno, 'EINTR', 4)
 
 
-def get_socket(hostname, port, use_ssl=False, ssl_verify=True, ssl_verify_hostname=True, ssl_context=None,
-               timeout=15.0):
+def get_socket(hostname: str,
+               port: int,
+               use_ssl: bool = False,
+               ssl_verify: bool = True,
+               ssl_verify_hostname: bool = True,
+               ssl_context: ssl.SSLContext | None = None,
+               timeout: float = 15.0) -> SocketWrapper:
     while True:
         try:
             api_socket = socket.create_connection((hostname, port), timeout=timeout)
@@ -54,16 +61,33 @@ def set_keepalive(sock, after_idle_sec=1, interval_sec=3, max_fails=5):
         sock.setsockopt(socket.IPPROTO_TCP, socket.TCP_KEEPCNT, max_fails)
 
 
-class DummySocket(object):
-    def close(self):
+class Socket(object):
+    def send(self, bytes):
+        raise NotImplementedError
+
+    def receive(self, length):
+        raise NotImplementedError
+
+    def _receive_and_check_connection(self, length):
+        raise NotImplementedError
+
+    def close(self) -> None:
+        raise NotImplementedError
+
+    def settimeout(self, timeout: float) -> None:
+        raise NotImplementedError
+
+
+class DummySocket(Socket):
+    def close(self) -> None:
         pass
 
-    def settimeout(self, timeout):
+    def settimeout(self, timeout: float) -> None:
         pass
 
 
-class SocketWrapper(object):
-    def __init__(self, socket):
+class SocketWrapper(Socket):
+    def __init__(self, socket: socket.socket):
         self.socket = socket
 
     def send(self, bytes):
@@ -86,8 +110,8 @@ class SocketWrapper(object):
         else:
             raise exceptions.RouterOsApiConnectionClosedError
 
-    def close(self):
+    def close(self) -> None:
         return self.socket.close()
 
-    def settimeout(self, timeout):
+    def settimeout(self, timeout: float):
         self.socket.settimeout(timeout)

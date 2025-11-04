@@ -1,10 +1,17 @@
+from typing import TYPE_CHECKING
+
 from routeros_api import exceptions
+
+if TYPE_CHECKING:
+    from routeros_api.api import CloseConnectionExceptionHandler
+    from routeros_api.api_communicator.key_cleaner_decorator import KeyCleanerApiCommunicator
+    from routeros_api.communication_exception_parsers import ExceptionHandler
 
 
 class ExceptionAwareApiCommunicator(object):
-    def __init__(self, inner):
-        self.inner = inner
-        self.exception_handlers = []
+    def __init__(self, inner: KeyCleanerApiCommunicator):
+        self.inner: KeyCleanerApiCommunicator = inner
+        self.exception_handlers: list[CloseConnectionExceptionHandler | ExceptionHandler] = []
 
     def send(self, *args, **kwargs):
         try:
@@ -25,7 +32,7 @@ class ExceptionAwareApiCommunicator(object):
         except exceptions.RouterOsApiError as e:
             self.handle_exception(e)
 
-    def add_handler(self, handler):
+    def add_handler(self, handler: CloseConnectionExceptionHandler | ExceptionHandler):
         self.exception_handlers.append(handler)
 
     def handle_exception(self, exception):

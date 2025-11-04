@@ -2,13 +2,13 @@ from routeros_api import utils
 
 
 class BasicQuery(object):
-    operator = None
+    operator: bytes
 
     def __init__(self, key, value):
         self.key = utils.get_bytes(key)
         self.value = utils.get_bytes(value)
 
-    def get_api_format(self):
+    def get_api_format(self) -> list[bytes]:
         return [self.operator + self.key + b'=' + self.value]
 
 
@@ -28,17 +28,17 @@ class HasValueQuery(object):
     def __init__(self, key):
         self.key = utils.get_bytes(key)
 
-    def get_api_format(self):
+    def get_api_format(self) -> list[bytes]:
         return [b"?" + self.key]
 
 
 class OperatorQuery(object):
-    operator = None
+    operator: bytes
 
     def __init__(self, *others):
         self.others = others
 
-    def get_api_format(self):
+    def get_api_format(self) -> list[bytes]:
         formated = []
         for other in self.others:
             formated.extend(other.get_api_format())
@@ -56,7 +56,7 @@ class AndQuery(OperatorQuery):
 
 
 class NandQuery(AndQuery):
-    def get_api_format(self):
+    def get_api_format(self) -> list[bytes]:
         formated = super(NandQuery, self).get_api_format()
         formated[-1] += b'!'
         return formated

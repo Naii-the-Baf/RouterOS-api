@@ -4,7 +4,7 @@ from routeros_api import exceptions
 
 
 class ExceptionHandler(object):
-    def __init__(self):
+    def __init__(self) -> None:
         self.message_to_class_map = []
 
     def add_exception_type(self, message_re, exception_class):

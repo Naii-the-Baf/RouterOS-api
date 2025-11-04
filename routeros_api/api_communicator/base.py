@@ -1,13 +1,20 @@
+from __future__ import annotations
+
+from typing import TYPE_CHECKING
+
 from routeros_api import exceptions
 from routeros_api import query
 from routeros_api import sentence
 
+if TYPE_CHECKING:
+    from routeros_api.base_api import Connection
+
 
 class ApiCommunicatorBase(object):
-    def __init__(self, base):
+    def __init__(self, base: Connection):
         self.base = base
-        self.tag = 0
-        self.response_buffor = {}
+        self.tag: int = 0
+        self.response_buffor: dict[bytes, AsynchronousResponse] = {}
 
     def send(self, path, command, arguments=None, queries=None, additional_queries=()):
         tag = self._get_next_tag()
@@ -31,7 +38,7 @@ class ApiCommunicatorBase(object):
     def send_command(self, command):
         self.base.send_sentence(command.get_api_format())
 
-    def _get_next_tag(self):
+    def _get_next_tag(self) -> bytes:
         self.tag += 1
         return str(self.tag).encode()
 
@@ -46,16 +53,16 @@ class ApiCommunicatorBase(object):
         else:
             return response
 
-    def receive_iterator(self, tag):
+    def receive_iterator(self, tag) -> AsynchronousResponseIterator:
         response_buffor_manager = AsynchronousResponseBufforManager(self, tag)
         return AsynchronousResponseIterator(response_buffor_manager)
 
-    def process_single_response(self):
+    def process_single_response(self) -> None:
         response = self.receive_single_response()
         response.save_to_buffor(self.response_buffor)
 
-    def receive_single_response(self):
-        serialized = []
+    def receive_single_response(self) -> SingleResponse:
+        serialized: list[bytes] = []
         while not serialized:
             serialized = self.base.receive_sentence()
         response_sentence = sentence.ResponseSentence.parse(serialized)
@@ -116,19 +123,19 @@ class AsynchronousResponseIterator:
 
 
 class AsynchronousResponseBufforManager(object):
-    def __init__(self, receiver, tag):
+    def __init__(self, receiver: ApiCommunicatorBase, tag):
         self.receiver = receiver
         self.tag = tag
         self.response = self.receiver.response_buffor[self.tag]
 
-    def step_to_finish_response(self):
+    def step_to_finish_response(self) -> None:
         self.receiver.process_single_response()
 
     @property
-    def done(self):
+    def done(self) -> bool:
         return self.response.done
 
-    def clean(self):
+    def clean(self) -> None:
         del (self.receiver.response_buffor[self.tag])
 
 
@@ -138,7 +145,7 @@ class AsynchronousResponse(list):
         super(AsynchronousResponse, self).__init__(*args, **kwargs)
         self.done_message = {}
         self.done = False
-        self.error = None
+        self.error: bytes | None = None
 
     @property
     def error_as_exception(self):

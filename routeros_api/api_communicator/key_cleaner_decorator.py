@@ -1,8 +1,14 @@
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from routeros_api.api_communicator.base import ApiCommunicatorBase
+
+
 class KeyCleanerApiCommunicator(object):
-    def __init__(self, inner):
+    def __init__(self, inner: ApiCommunicatorBase):
         self.inner = inner
 
-    def send(self, path, command, arguments=None, queries=None,
+    def send(self, path: str, command: str, arguments=None, queries=None,
              additional_queries=()):
         encoded_arguments = encode_dictionary(arguments or {})
         encoded_queries = encode_dictionary(queries or {})
@@ -19,7 +25,7 @@ class KeyCleanerApiCommunicator(object):
         return map(decode_dictionary, answers)
 
 
-def encode_dictionary(dictionary):
+def encode_dictionary(dictionary: dict):
     return dict([(encode_key(key), value) for key, value in
                  dictionary.items()])
 
